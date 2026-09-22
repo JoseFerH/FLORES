@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🌼 Para ti, amiguita</title>
+
+  <!-- GSAP y ScrollTrigger -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+  <style>
+    /* ============================================================
+       RESET & BASE
+       ============================================================ */
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'Georgia', 'Times New Roman', serif;
+    }
+
+    body {
+      background: linear-gradient(180deg, #fce4ec 0%, #f8bbd0 40%, #f48fb1 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      position: relative;
+    }
+
+    /* ============================================================
+       PANTALLA DE INICIO — "Toca la pantalla"
+       ============================================================ */
+    #tap-prompt {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    #tap-prompt .prompt-text {
+      color: #ad1457;
+      font-size: 1.15rem;
+      letter-spacing: 0.06em;
+      opacity: 0.85;
+      animation: pulse-soft 2.5s ease-in-out infinite;
+      text-align: center;
+      padding: 0 2rem;
+      line-height: 1.6;
+    }
+
+    #tap-prompt .tap-icon {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 1.2rem;
+      opacity: 0.7;
+      animation: bounce-soft 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-soft {
+
+      0%,
+      100% {
+        opacity: 0.55;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1.04);
+      }
+    }
+
+    @keyframes bounce-soft {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    /* ============================================================
+       PARTÍCULAS DE PÉTALOS (siempre visibles)
+       ============================================================ */
+    #petals-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       TEXTO SUPERIOR
+       ============================================================ */
+    #message {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 2.5rem 1.5rem 1.5rem;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(-30px);
+      pointer-events: none;
+    }
+
+    #message p {
+      color: #880e4f;
+      font-size: 1.45rem;
+      line-height: 1.75;
+      font-style: italic;
+      text-shadow: 0 1px 8px rgba(255, 255, 255, 0.6);
+      max-width: 380px;
+      margin: 0 auto;
+    }
+
+    /* ============================================================
+       MENSAJE DE EXPLOSIÓN
+       ============================================================ */
+    #explosion-message {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0.3);
+    }
+
+    #explosion-message p {
+      color: #d81b60;
+      font-size: 2rem;
+      font-weight: bold;
+      text-align: center;
+      text-shadow: 0 2px 15px rgba(255, 255, 255, 0.8);
+      padding: 0 1.5rem;
+      line-height: 1.5;
+    }
+
+    /* ============================================================
+       CONTENEDOR DEL RAMO (parte inferior)
+       ============================================================ */
+    #bouquet-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 55vh;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    /* ============================================================
+       ONDA DE TOQUE (ripple)
+       ============================================================ */
+    .touch-ripple {
+      position: fixed;
+      z-index: 50;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 183, 77, 0.6) 0%, rgba(255, 183, 77, 0) 70%);
+      pointer-events: none;
+      transform: translate(-50%, -50%) scale(0);
+    }
+
+    /* ============================================================
+       SPARKLES que salen al tocar
+       ============================================================ */
+    .sparkle {
+      position: fixed;
+      z-index: 55;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       CINTA / LAZO decorativo debajo del ramo
+       ============================================================ */
+    #ribbon {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Canvas para pétalos cayendo -->
+  <canvas id="petals-canvas"></canvas>
+
+  <!-- Prompt de inicio -->
+  <div id="tap-prompt">
+    <svg class="tap-icon" viewBox="0 0 64 64" fill="none">
+      <path d="M32 12 v36" stroke="#ad1457" stroke-width="2.5" stroke-linecap="round" />
+      <path d="M20 38 l12 12 12-12" stroke="#ad1457" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        fill="none" />
+    </svg>
+    <span class="prompt-text">Toca la pantalla</span>
+  </div>
+
+  <!-- Mensaje superior -->
+  <div id="message">
+    <p>No son flores reales, menos narcisos de verdad, pero aquí están tus flores amarillas Lizzy 💛</p>
+  </div>
+
+  <!-- Mensaje de explosión -->
+  <div id="explosion-message">
+    <p>Mentira, se acabaron las flores 😈</p>
+    <p>Ya amiga riete un poco xD, lo sé, soy la comedia andante</p>
+  </div>
+
+  <!-- Cinta decorativa -->
+  <svg id="ribbon" width="120" height="80" viewBox="0 0 120 80">
+    <path d="M60,10 Q30,10 20,40 Q10,70 35,65 Q50,62 60,50 Q70,62 85,65 Q110,70 100,40 Q90,10 60,10Z" fill="#f06292"
+      opacity="0.7" />
+    <path d="M55,50 Q50,70 40,78" stroke="#ec407a" stroke-width="3" fill="none" stroke-linecap="round" />
+    <path d="M65,50 Q70,70 80,78" stroke="#ec407a" stroke-width="3" fill="none" stroke-linecap="round" />
+  </svg>
+
+  <!-- Contenedor del Ramo -->
+  <div id="bouquet-container"></div>
+
+  <!-- ============================================================
+       PLANTILLA SVG DEL NARCISO
+       ============================================================ -->
+  <template id="daffodil-template">
+    <svg viewBox="0 0 200 300" width="100%" height="100%">
+      <defs>
+        <radialGradient id="petalGrad" cx="50%" cy="100%" r="100%" fx="50%" fy="100%">
+          <stop offset="0%" stop-color="#FFD700" />
+          <stop offset="100%" stop-color="#FFF080" />
+        </radialGradient>
+        <radialGradient id="cupGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#FF8C00" />
+          <stop offset="70%" stop-color="#FFA500" />
+          <stop offset="100%" stop-color="#FFC000" />
+        </radialGradient>
+      </defs>
+
+      <g class="plant-base">
+        <path class="stem" d="M100,150 Q115,220 100,300" fill="none" stroke="#5C8021" stroke-width="7"
+          stroke-linecap="round" />
+        <g class="leaves-group">
+          <path class="leaf leaf-left" d="M100,290 Q60,240 30,140 Q65,200 100,250" fill="#6B8E23" stroke="#4A6618"
+            stroke-width="1.5" />
+          <path class="leaf leaf-right" d="M100,300 Q140,260 170,120 Q130,220 100,280" fill="#789E28" stroke="#5C8021"
+            stroke-width="1.5" />
+        </g>
+      </g>
+
+      <g class="flower-head" style="transform-origin: 100px 150px;">
+        <g class="tepals-outer">
+          <g style="transform: rotate(0deg); transform-origin: 100px 150px;">
+            <path class="tepal" d="M100,140 C65,115 55,65 100,40 C145,65 135,115 100,140 Z" fill="url(#petalGrad)"
+              stroke="#E6B800" stroke-width="1.5" />
+            <path d="M100,140 Q100,90 100,50" fill="none" stroke="#E6B800" stroke-width="1" opacity="0.6" />
+          </g>
+          <g style="transform: rotate(60deg); transform-origin: 100px 150px;">
+            <path class="tepal" d="M100,140 C65,115 55,65 100,40 C145,65 135,115 100,140 Z" fill="url(#petalGrad)"
+              stroke="#E6B800" stroke-width="1.5" />
+            <path d="M100,140 Q100,90 100,50" fill="none" stroke="#E6B800" stroke-width="1" opacity="0.6" />
+          </g>
+          <g style="transform: rotate(120deg); transform-origin: 100px 150px;">
+            <path class="tepal" d="M100,140 C65,115 55,65 100,40 C145,65 135,115 100,140 Z" fill="url(#petalGrad)"
+              stroke="#E6B800" stroke-width="1.5" />
+            <path d="M100,140 Q100,90 100,50" fill="none" stroke="#E6B800" stroke-width="1" opacity="0.6" />
+          </g>
+          <g style="transform: rotate(180deg); transform-origin: 100px 150px;">
+            <path class="tepal" d="M100,140 C65,115 55,65 100,40 C145,65 135,115 100,140 Z" fill="url(#petalGrad)"
+              stroke="#E6B800" stroke-width="1.5" />
+            <path d="M100,140 Q100,90 100,50" fill="none" stroke="#E6B800" stroke-width="1" opacity="0.6" />
+          </g>
+          <g style="transform: rotate(240deg); transform-origin: 100px 150px;">
+            <path class="tepal" d="M100,140 C65,115 55,65 100,40 C145,65 135,115 100,140 Z" fill="url(#petalGrad)"
+              stroke="#E6B800" stroke-width="1.5" />
+            <path d="M100,140 Q100,90 100,50" fill="none" stroke="#E6B800" stroke-width="1" opacity="0.6" />
+          </g>
+          <g style="transform: rotate(300deg); transform-origin: 100px 150px;">
+            <path class="tepal" d="M100,140 C65,115 55,65 100,40 C145,65 135,115 100,140 Z" fill="url(#petalGrad)"
+              stroke="#E6B800" stroke-width="1.5" />
+            <path d="M100,140 Q100,90 100,50" fill="none" stroke="#E6B800" stroke-width="1" opacity="0.6" />
+          </g>
+        </g>
+
+        <g class="corona-trumpet" style="transform-origin: 100px 150px;">
+          <path d="M 85,145 C 75,135 68,115 72,110 C 85,115 115,115 128,110 C 132,115 125,135 115,145 Z" fill="#FFB300"
+            stroke="#CC7A00" stroke-width="1.5" stroke-linejoin="round" />
+          <path
+            d="M 72,110 C 74,103 78,107 80,105 C 83,98 87,106 90,105 C 93,98 97,106 100,105 C 103,98 107,106 110,105 C 113,98 117,106 120,105 C 122,107 126,103 128,110 C 126,117 122,113 120,115 C 117,122 113,114 110,115 C 107,122 103,114 100,115 C 97,122 93,114 90,115 C 87,122 83,114 80,115 C 78,113 74,117 72,110 Z"
+            fill="url(#cupGrad)" stroke="#CC7A00" stroke-width="1.5" stroke-linejoin="round" />
+          <ellipse cx="100" cy="110" rx="16" ry="6" fill="#CC5200" opacity="0.6" />
+        </g>
+
+        <g class="stamen">
+          <path d="M96,110 Q94,100 92,95" fill="none" stroke="#FFE699" stroke-width="1.5" />
+          <circle cx="92" cy="95" r="2.5" fill="#FF4500" />
+          <path d="M104,110 Q106,100 108,95" fill="none" stroke="#FFE699" stroke-width="1.5" />
+          <circle cx="108" cy="95" r="2.5" fill="#FF4500" />
+          <path d="M100,110 Q100,102 100,92" fill="none" stroke="#FFE699" stroke-width="1.5" />
+          <circle cx="100" cy="92" r="2.5" fill="#FF4500" />
+        </g>
+      </g>
+    </svg>
+  </template>
+
+  <!-- ============================================================
+       JAVASCRIPT PRINCIPAL
+       ============================================================ -->
+  <script>
+    gsap.registerPlugin(ScrollTrigger);
+
+    /* ==========================================================
+       SECCIÓN 1: Sistema de Sonido con Web Audio API
+       ========================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.ready = false;
+      }
+
+      init() {
+        if (this.ready) return;
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.ready = true;
+      }
+
+      // Nota dulce tipo caja de música — ataque suave, decay largo
+      _softBell(freq = 520, volume = 0.12, duration = 1.2, delay = 0) {
+        if (!this.ready) return;
+        const ctx = this.ctx;
+        const now = ctx.currentTime + delay;
+
+        // Dos osciladores superpuestos para un timbre más cálido
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(freq, now);
+
+        // Segundo oscilador una octava arriba, muy suave, para brillo
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(freq * 2, now);
+
+        const osc2Gain = ctx.createGain();
+        osc2Gain.gain.setValueAtTime(volume * 0.15, now);
+
+        // Filtro suave para quitar dureza
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(Math.min(freq * 3, 3000), now);
+        filter.Q.setValueAtTime(1, now);
+
+        // Envolvente suave: fade-in lento → pico → decay largo
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(volume, now + 0.08);
+        gain.gain.exponentialRampToValueAtTime(volume * 0.6, now + duration * 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc1.connect(filter);
+        osc2.connect(osc2Gain);
+        osc2Gain.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + duration + 0.1);
+        osc2.stop(now + duration + 0.1);
+      }
+
+      // Sonido "bloom" — arpegio ascendente de caja de música, muy dulce
+      playBloom() {
+        if (!this.ready) return;
+
+        // Escala pentatónica mayor — suena mágica y tierna
+        // C5, D5, E5, G5, A5, C6, D6, E6
+        const notes = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51];
+
+        notes.forEach((freq, i) => {
+          this._softBell(freq, 0.10 - i * 0.008, 2.0 - i * 0.1, i * 0.22);
+        });
+
+        // Acorde base suave de fondo (pad)
+        this._softBell(261.63, 0.06, 4.0, 0.1);   // C4
+        this._softBell(329.63, 0.05, 3.8, 0.2);   // E4
+        this._softBell(392.00, 0.05, 3.5, 0.3);   // G4
+      }
+
+      // Toque suave — gotita cristalina
+      playTap() {
+        if (!this.ready) return;
+        // Nota aleatoria de escala pentatónica para que siempre suene bonito
+        const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+        const freq = pentatonic[Math.floor(Math.random() * pentatonic.length)];
+        this._softBell(freq, 0.08, 0.8);
+      }
+
+      // Sonido de BOMBA — explosión real, potente
+      playExplosion() {
+        if (!this.ready) return;
+        const ctx = this.ctx;
+        const now = ctx.currentTime;
+
+        // 1. Ruido blanco fuerte — el estallido principal
+        const bufferSize = ctx.sampleRate * 1.5;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          const t = i / bufferSize;
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.5);
+        }
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.5, now);
+        noiseGain.gain.linearRampToValueAtTime(0.6, now + 0.05);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.setValueAtTime(5000, now);
+        noiseFilter.frequency.exponentialRampToValueAtTime(300, now + 1.2);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        noise.start(now);
+
+        // 2. Sub-boom grave profundo
+        const boom = ctx.createOscillator();
+        const boomGain = ctx.createGain();
+        boom.type = 'sine';
+        boom.frequency.setValueAtTime(80, now);
+        boom.frequency.exponentialRampToValueAtTime(20, now + 1.0);
+        boomGain.gain.setValueAtTime(0.6, now);
+        boomGain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+        boom.connect(boomGain);
+        boomGain.connect(ctx.destination);
+        boom.start(now);
+        boom.stop(now + 1.1);
+
+        // 3. Chasquido metálico / metralla
+        const crack = ctx.createOscillator();
+        const crackGain = ctx.createGain();
+        crack.type = 'sawtooth';
+        crack.frequency.setValueAtTime(400, now);
+        crack.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+        crackGain.gain.setValueAtTime(0.3, now);
+        crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        const crackFilter = ctx.createBiquadFilter();
+        crackFilter.type = 'highpass';
+        crackFilter.frequency.setValueAtTime(200, now);
+        crack.connect(crackFilter);
+        crackFilter.connect(crackGain);
+        crackGain.connect(ctx.destination);
+        crack.start(now);
+        crack.stop(now + 0.4);
+
+        // 4. Segundo impacto retardado (eco)
+        const boom2 = ctx.createOscillator();
+        const boom2Gain = ctx.createGain();
+        boom2.type = 'sine';
+        boom2.frequency.setValueAtTime(60, now + 0.15);
+        boom2.frequency.exponentialRampToValueAtTime(15, now + 0.8);
+        boom2Gain.gain.setValueAtTime(0.001, now);
+        boom2Gain.gain.linearRampToValueAtTime(0.35, now + 0.15);
+        boom2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        boom2.connect(boom2Gain);
+        boom2Gain.connect(ctx.destination);
+        boom2.start(now);
+        boom2.stop(now + 0.9);
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    /* ==========================================================
+       SECCIÓN 2: Partículas de Pétalos (Canvas 2D)
+       ========================================================== */
+    const canvas = document.getElementById('petals-canvas');
+    const ctxCanvas = canvas.getContext('2d');
+    let petals = [];
+    let infernalMode = false;
+
+    const normalPetalColors = [
+      'rgba(244,143,177,', // rosa medio
+      'rgba(236,64,122,',  // rosa fuerte
+      'rgba(252,228,236,', // rosa claro
+      'rgba(255,205,210,', // rosa pálido
+      'rgba(248,187,208,', // rosa pastel
+      'rgba(255,255,255,', // blanco
+    ];
+
+    const infernalPetalColors = [
+      'rgba(200,30,30,',   // rojo sangre
+      'rgba(255,69,0,',    // rojo naranja
+      'rgba(139,0,0,',     // rojo oscuro
+      'rgba(50,0,0,',      // casi negro
+      'rgba(255,140,0,',   // naranja fuego
+      'rgba(80,0,0,',      // borgoña oscuro
+    ];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    class Petal {
+      constructor() {
+        this.reset(true);
+      }
+
+      reset(initial = false) {
+        this.x = Math.random() * canvas.width;
+        this.y = initial ? Math.random() * canvas.height : -20;
+        this.size = 6 + Math.random() * 10;
+        this.speedY = 0.4 + Math.random() * 1.0;
+        this.speedX = -0.3 + Math.random() * 0.6;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.03;
+        this.wobbleAmp = 20 + Math.random() * 40;
+        this.wobbleSpeed = 0.005 + Math.random() * 0.01;
+        this.wobbleOffset = Math.random() * Math.PI * 2;
+        this.opacity = 0.3 + Math.random() * 0.5;
+        this.time = 0;
+
+        // Colores dinámicos según modo
+        const colors = infernalMode ? infernalPetalColors : normalPetalColors;
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+        // En modo infernal, caen más rápido y con más opacidad
+        if (infernalMode) {
+          this.speedY = 1.0 + Math.random() * 2.0;
+          this.opacity = 0.5 + Math.random() * 0.5;
+        }
+      }
+
+      update() {
+        this.time++;
+        this.y += this.speedY;
+        this.x += this.speedX + Math.sin(this.time * this.wobbleSpeed + this.wobbleOffset) * 0.5;
+        this.rotation += this.rotSpeed;
+
+        if (this.y > canvas.height + 20) this.reset();
+        if (this.x < -30 || this.x > canvas.width + 30) this.reset();
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.globalAlpha = this.opacity;
+
+        // Forma de pétalo ovalado con curvas
+        ctx.beginPath();
+        ctx.moveTo(0, -this.size * 0.5);
+        ctx.bezierCurveTo(
+          this.size * 0.6, -this.size * 0.5,
+          this.size * 0.6, this.size * 0.5,
+          0, this.size * 0.7
+        );
+        ctx.bezierCurveTo(
+          -this.size * 0.6, this.size * 0.5,
+          -this.size * 0.6, -this.size * 0.5,
+          0, -this.size * 0.5
+        );
+        ctx.closePath();
+
+        ctx.fillStyle = this.color + this.opacity + ')';
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    // Crear pétalos
+    const PETAL_COUNT = 35;
+    for (let i = 0; i < PETAL_COUNT; i++) {
+      petals.push(new Petal());
+    }
+
+    function animatePetals() {
+      ctxCanvas.clearRect(0, 0, canvas.width, canvas.height);
+      petals.forEach(p => {
+        p.update();
+        p.draw(ctxCanvas);
+      });
+      requestAnimationFrame(animatePetals);
+    }
+    animatePetals();
+
+    /* ==========================================================
+       SECCIÓN 3: Creación del Ramo de Narcisos
+       ========================================================== */
+    function buildBouquet() {
+      const container = document.getElementById('bouquet-container');
+      const template = document.getElementById('daffodil-template');
+
+      const bouquetColors = [
+        { name: 'blanco-puro', petal: ['#FFFFFF', '#F4F4F4'], cup: ['#FFD700', '#FFC000', '#FFA500'] },
+        { name: 'durazno', petal: ['#FFF0F5', '#FFE4E1'], cup: ['#FFB6C1', '#FFA07A', '#FF7F50'] },
+        { name: 'clasico', petal: ['#FFD700', '#FFF080'], cup: ['#FF8C00', '#FFA500', '#FFC000'] },
+        { name: 'crema-suave', petal: ['#FFFFE0', '#FFFACD'], cup: ['#FFDAB9', '#FFC0CB', '#FFB6C1'] },
+        { name: 'invertido', petal: ['#FF8C00', '#FFA500'], cup: ['#FFD700', '#FFF080', '#FFC000'] },
+        { name: 'blanco-limon', petal: ['#FFFFFF', '#F0F0F0'], cup: ['#E6FF00', '#CCFF00', '#99CC00'] },
+        { name: 'naranja-fuerte', petal: ['#FFA500', '#FF8C00'], cup: ['#FF4500', '#D2691E', '#A0522D'] }
+      ];
+
+      const numFlowers = bouquetColors.length;
+      const wrappers = [];
+
+      for (let i = 0; i < numFlowers; i++) {
+        const clone = template.content.cloneNode(true);
+        const svg = clone.querySelector('svg');
+        const colorPalette = bouquetColors[i];
+
+        // IDs únicos para gradientes
+        const petalGradId = `petalGrad-${i}`;
+        const cupGradId = `cupGrad-${i}`;
+
+        const petalGrad = svg.querySelector('#petalGrad');
+        const cupGrad = svg.querySelector('#cupGrad');
+        petalGrad.id = petalGradId;
+        cupGrad.id = cupGradId;
+
+        // Colores dinámicos
+        const petalStops = petalGrad.querySelectorAll('stop');
+        petalStops[0].setAttribute('stop-color', colorPalette.petal[0]);
+        petalStops[1].setAttribute('stop-color', colorPalette.petal[1]);
+
+        const cupStops = cupGrad.querySelectorAll('stop');
+        cupStops[0].setAttribute('stop-color', colorPalette.cup[0]);
+        cupStops[1].setAttribute('stop-color', colorPalette.cup[1]);
+        cupStops[2].setAttribute('stop-color', colorPalette.cup[2]);
+
+        // Re-vincular gradientes
+        svg.querySelectorAll('[fill="url(#petalGrad)"]').forEach(el =>
+          el.setAttribute('fill', `url(#${petalGradId})`)
+        );
+        svg.querySelectorAll('[fill="url(#cupGrad)"]').forEach(el =>
+          el.setAttribute('fill', `url(#${cupGradId})`)
+        );
+
+        // Wrapper posicionado
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'absolute';
+        wrapper.style.width = '130px';
+        wrapper.style.height = '200px';
+
+        // Distribución en abanico
+        const spread = i / (numFlowers - 1);
+        const angle = -Math.PI / 3 + (spread * (2 * Math.PI / 3));
+        const xOffset = Math.sin(angle) * 120;
+        const yOffset = Math.abs(Math.cos(angle)) * 35;
+
+        wrapper.style.left = `calc(50% - 65px + ${xOffset}px)`;
+        wrapper.style.bottom = `${-10 + yOffset}px`;
+
+        const rotation = (angle * 180 / Math.PI) * 0.8;
+        const scale = 0.75 + Math.random() * 0.25;
+
+        gsap.set(wrapper, {
+          rotation: rotation,
+          scale: 0,
+          opacity: 0,
+          transformOrigin: 'bottom center'
+        });
+
+        wrapper.appendChild(svg);
+        container.appendChild(wrapper);
+
+        wrappers.push({ wrapper, rotation, scale, index: i });
+      }
+
+      return wrappers;
+    }
+
+    /* ==========================================================
+       SECCIÓN 4: Animación de Aparición del Ramo
+       ========================================================== */
+    function animateBouquetIn(wrappers) {
+      const container = document.getElementById('bouquet-container');
+
+      // Mostrar contenedor
+      gsap.to(container, { opacity: 1, duration: 0.3 });
+
+      // Cada flor crece con efecto rebote
+      wrappers.forEach(({ wrapper, rotation, scale, index }) => {
+        gsap.to(wrapper, {
+          scale: scale,
+          opacity: 1,
+          y: 0,
+          duration: 1.4,
+          delay: index * 0.13,
+          ease: 'back.out(1.4)',
+          onComplete: () => {
+            // Animación infinita de viento
+            gsap.to(wrapper, {
+              rotation: rotation + (Math.random() > 0.5 ? 5 : -5),
+              duration: 3 + Math.random() * 2,
+              yoyo: true,
+              repeat: -1,
+              ease: 'sine.inOut',
+              delay: Math.random() * 1.5
+            });
+          }
+        });
+
+        // Punto de partida: desplazado abajo
+        gsap.set(wrapper, { y: 150 });
+      });
+    }
+
+    /* ==========================================================
+       SECCIÓN 5: Ripple y Sparkles al Tocar
+       ========================================================== */
+    function createRipple(x, y) {
+      const ripple = document.createElement('div');
+      ripple.className = 'touch-ripple';
+      ripple.style.left = x + 'px';
+      ripple.style.top = y + 'px';
+      document.body.appendChild(ripple);
+
+      gsap.to(ripple, {
+        scale: 8,
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power2.out',
+        onComplete: () => ripple.remove()
+      });
+    }
+
+    function createSparkles(x, y, count = 8) {
+      const normalColors = ['#FFD700', '#FFF176', '#FFB74D', '#FF8A65', '#F48FB1', '#FFFFFF'];
+      const fireColors = ['#FF3300', '#FF6600', '#FF0000', '#CC0000', '#FF4500', '#FFD700'];
+      const sparkleColors = infernalMode ? fireColors : normalColors;
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('div');
+        s.className = 'sparkle';
+        s.style.left = x + 'px';
+        s.style.top = y + 'px';
+        s.style.backgroundColor = sparkleColors[Math.floor(Math.random() * sparkleColors.length)];
+        document.body.appendChild(s);
+
+        const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.5;
+        const dist = 40 + Math.random() * 60;
+
+        gsap.to(s, {
+          x: Math.cos(angle) * dist,
+          y: Math.sin(angle) * dist - 30,
+          opacity: 0,
+          scale: 0,
+          duration: 0.6 + Math.random() * 0.4,
+          ease: 'power2.out',
+          onComplete: () => s.remove()
+        });
+      }
+    }
+
+    /* ==========================================================
+       SECCIÓN 6: Lógica Principal — Estados de la App
+       ========================================================== */
+    let appState = 'waiting'; // 'waiting' | 'revealed' | 'exploded'
+    let bouquetWrappers = null;
+    let canExplode = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Pre-construir el ramo (invisible)
+      bouquetWrappers = buildBouquet();
+    });
+
+    // Evento de toque / click
+    function handleInteraction(e) {
+      const x = e.clientX || (e.touches && e.touches[0]?.clientX) || window.innerWidth / 2;
+      const y = e.clientY || (e.touches && e.touches[0]?.clientY) || window.innerHeight / 2;
+
+      // Inicializar audio en el primer toque (requerido por navegadores)
+      sound.init();
+
+      if (appState === 'waiting') {
+        appState = 'revealed';
+        canExplode = false;
+        setTimeout(() => { canExplode = true; }, 1500);
+
+        // Ocultar prompt
+        const prompt = document.getElementById('tap-prompt');
+        gsap.to(prompt, {
+          opacity: 0,
+          scale: 0.8,
+          duration: 0.5,
+          ease: 'power2.in',
+          onComplete: () => { prompt.style.display = 'none'; }
+        });
+
+        // Mostrar mensaje con animación
+        const message = document.getElementById('message');
+        gsap.to(message, {
+          opacity: 1,
+          y: 0,
+          duration: 1.2,
+          delay: 0.3,
+          ease: 'power3.out'
+        });
+
+        // Mostrar cinta
+        const ribbon = document.getElementById('ribbon');
+        gsap.to(ribbon, {
+          opacity: 0.7,
+          duration: 1,
+          delay: 0.5,
+          ease: 'power2.out'
+        });
+
+        // Animar ramo
+        animateBouquetIn(bouquetWrappers);
+
+        // Sonido principal
+        sound.playBloom();
+
+        // Ripple y sparkles en punto de toque
+        createRipple(x, y);
+        createSparkles(x, y, 12);
+
+      } else if (appState === 'revealed' && canExplode) {
+        appState = 'exploded';
+
+        // Sonido de BOMBA
+        sound.playExplosion();
+
+        // Screen shake
+        gsap.to(document.body, {
+          x: 10, duration: 0.05, yoyo: true, repeat: 11,
+          ease: 'power1.inOut',
+          onComplete: () => gsap.set(document.body, { x: 0 })
+        });
+
+        // Sparkles de fuego en el centro del ramo
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight * 0.55;
+        createSparkles(cx, cy, 25);
+        createRipple(cx, cy);
+
+        // Explotar cada flor
+        bouquetWrappers.forEach(({ wrapper }, i) => {
+          gsap.killTweensOf(wrapper);
+          const angle = (Math.PI * 2 / bouquetWrappers.length) * i + (Math.random() - 0.5);
+          const distance = 300 + Math.random() * 500;
+          const randRotation = (Math.random() - 0.5) * 720;
+          gsap.to(wrapper, {
+            x: Math.cos(angle) * distance,
+            y: Math.sin(angle) * distance - 400,
+            rotation: randRotation,
+            scale: 0,
+            opacity: 0,
+            duration: 0.8 + Math.random() * 0.4,
+            delay: i * 0.05,
+            ease: 'power3.out'
+          });
+        });
+
+        // Ocultar cinta
+        const ribbon = document.getElementById('ribbon');
+        gsap.to(ribbon, { opacity: 0, duration: 0.3, ease: 'power2.in' });
+
+        // Ocultar mensaje original
+        const message = document.getElementById('message');
+        gsap.to(message, { opacity: 0, y: -20, duration: 0.4, ease: 'power2.in' });
+
+        // Flash rojo/naranja de explosión
+        const flash = document.createElement('div');
+        flash.style.cssText = 'position:fixed;inset:0;z-index:59;pointer-events:none;background:radial-gradient(circle,rgba(255,80,0,0.9),rgba(180,0,0,0.8),rgba(0,0,0,0.6));';
+        document.body.appendChild(flash);
+        gsap.fromTo(flash, { opacity: 1 }, {
+          opacity: 0,
+          duration: 1.2,
+          ease: 'power2.out',
+          onComplete: () => flash.remove()
+        });
+
+        // ===== TRANSICIÓN INFERNAL =====
+
+        // Cambiar fondo a oscuro/rojo
+        gsap.to(document.body, {
+          background: 'linear-gradient(180deg, #1a0000 0%, #330000 30%, #4a0000 60%, #200000 100%)',
+          duration: 1.5,
+          delay: 0.5,
+          ease: 'power2.inOut'
+        });
+
+        // Activar pétalos infernales y forzar reset
+        setTimeout(() => {
+          infernalMode = true;
+          petals.forEach(p => p.reset());
+        }, 600);
+
+        // Mostrar mensaje infernal con estilo cambiado
+        const explosionMsg = document.getElementById('explosion-message');
+        setTimeout(() => {
+          explosionMsg.querySelector('p').style.color = '#ff3300';
+          explosionMsg.querySelector('p').style.textShadow = '0 0 20px rgba(255,50,0,0.8), 0 0 60px rgba(200,0,0,0.4), 0 4px 8px rgba(0,0,0,0.9)';
+          explosionMsg.querySelector('p').style.fontFamily = "'Impact', 'Arial Black', sans-serif";
+          explosionMsg.querySelector('p').style.letterSpacing = '0.05em';
+        }, 500);
+
+        gsap.to(explosionMsg, {
+          opacity: 1,
+          scale: 1,
+          duration: 0.8,
+          delay: 0.8,
+          ease: 'back.out(1.7)'
+        });
+      }
+      else {
+        // Estado 'exploded': solo efectos decorativos
+        createRipple(x, y);
+        createSparkles(x, y, 6);
+        sound.playTap();
+      }
+    }
+
+    // Soportar tanto touch como click
+    document.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleInteraction(e.touches[0]);
+    }, { passive: false });
+
+    document.addEventListener('click', handleInteraction);
+  </script>
+</body>
+
+</html>
